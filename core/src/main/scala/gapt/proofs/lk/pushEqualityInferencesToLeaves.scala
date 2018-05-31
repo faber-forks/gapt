@@ -10,12 +10,12 @@ object pushEqualityInferencesToLeaves {
    * Pushes equality inferences to the leaves.
    *
    * @param proof The proof to which this transformation is applied
-   * @return A proof of the same end-sequent which is obtained from the given proof
-   *        by moving all equality inferences towards the leaves as far as possible. Weakening inferences are moved
-   *        as close to the root as possible.
+   * @return A proof of the same end-sequent which is obtained from the given
+   *         proof by moving all equality inferences towards the leaves as far
+   *         as possible.
    */
   def apply( proof: LKProof ): LKProof = {
-    cleanStructuralRules( visitor( proof, () ), false )
+    visitor( proof, () )
   }
 
   private object visitor extends LKVisitor[Unit] {
