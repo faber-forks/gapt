@@ -170,6 +170,17 @@ object cutFreeLKeq {
 
 object eliminateFinalCut {
 
+  /**
+   * Eliminates a final cut inference.
+   *
+   * A cut inference is final if its left and right subproofs are nice
+   * equality sequences.
+   *
+   * @param finalCut The final cut to be eliminated
+   * @return Returns a normal equality sequence having the same end-sequent
+   * as the given final cut. This equality sequence is obtained from the given
+   * final cut by equality left-elimination and local rule permutations.
+   */
   def apply( finalCut: CutRule ): LKProof = {
     val weakEqualitySequence =
       pushCut( CutRule(
@@ -180,7 +191,17 @@ object eliminateFinalCut {
       finalCut.endSequent.antecedent )
   }
 
-  def pushCut( finalCut: CutRule ): LKProof = {
+  /**
+   * Eliminates a final cut inference.
+   *
+   * @param finalCut The final cut to be eliminated.
+   * @return The resulting proof is a normal equality sequence whose
+   * end-sequent is obtained from that of final cut by duplicating some
+   * formulas in the antecedent. The result is obtained by permuting the cut-
+   * inference upwards and by shifting equality right rules from the right
+   * subproof to the left subproof.
+   */
+  private def pushCut( finalCut: CutRule ): LKProof = {
     finalCut.leftSubProof match {
       case LogicalAxiom( _ ) =>
         finalCut.rightSubProof
@@ -324,15 +345,15 @@ object eliminateFinalCut {
 
 object isNiceEqualitySequence {
   /**
-    * Checks whether the given proof is a nice equality sequence.
-    *
-    * A proof is a nice equality sequence if it is a weakening only subtree
-    * followed by some equality inferences.
-    *
-    * @param proof The proof to be checked.
-    * @return true if the given proof is a nice equality sequence, false
-    * otherwise.
-    */
+   * Checks whether the given proof is a nice equality sequence.
+   *
+   * A proof is a nice equality sequence if it is a weakening only subtree
+   * followed by some equality inferences.
+   *
+   * @param proof The proof to be checked.
+   * @return true if the given proof is a nice equality sequence, false
+   * otherwise.
+   */
   def apply( proof: LKProof ): Boolean = {
     proof match {
       case eqr @ EqualityRightRule( _, _, _, _ ) =>
