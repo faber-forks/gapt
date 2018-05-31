@@ -97,6 +97,10 @@ object initialHistory {
     sequent.map { History( _, RewriteSequence( Seq() ) ) }
 }
 
+object eliminateEqualityLeft {
+  def apply( proof: LKProof ): LKProof = new EliminateEqualityLeft( proof )()
+}
+
 class EliminateEqualityLeft( proof: LKProof ) {
 
   private val endSequent: Sequent[Formula] = proof.conclusion
