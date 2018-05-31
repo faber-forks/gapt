@@ -7,6 +7,7 @@ import gapt.expr.BetaReduction
 import gapt.expr.Expr
 import gapt.expr.Formula
 import gapt.expr.Substitution
+import gapt.expr.freeVariables
 import gapt.proofs.IndexOrFormula
 import gapt.proofs.Sequent
 import gapt.proofs.SequentIndex
@@ -54,7 +55,7 @@ case class Rewrite(
   }
 }
 
-object splitEquationRewriteSequence {
+private object splitEquationRewriteSequence {
 
   def apply(
     rewriteSequence: RewriteSequence ): ( RewriteSequence, RewriteSequence ) = {
@@ -72,6 +73,23 @@ object splitEquationRewriteSequence {
     (
       Rewrite( Abs( contextVar, leftContext ), equation, direction ),
       Rewrite( Abs( contextVar, rightContext ), equation, direction ) )
+  }
+}
+
+private object dropIdentityRewriteSteps {
+  def apply( rewriteSequence: RewriteSequence ): RewriteSequence = {
+    rewriteSequence.copy( steps = rewriteSequence.steps.filter {
+      step =>
+        val Abs( v, t ) = step.context
+        freeVariables( t ).contains( v )
+    } )
+  }
+  def apply(
+    rewriteSequences: ( RewriteSequence, RewriteSequence ) ) //
+    : ( RewriteSequence, RewriteSequence ) = {
+    (
+      dropIdentityRewriteSteps( rewriteSequences._1 ),
+      dropIdentityRewriteSteps( rewriteSequences._2 ) )
   }
 }
 
@@ -120,7 +138,8 @@ class EliminateEqualityLeft( proof: LKProof ) {
         val principalHistory = histories( principalIndex )
 
         val ( s0Tos, t0Tot ) =
-          splitEquationRewriteSequence( equationHistory.steps )
+          dropIdentityRewriteSteps(
+            splitEquationRewriteSequence( equationHistory.steps ) )
 
         val newAuxHistory =
           getOrientation( eql ) match {
@@ -168,7 +187,8 @@ class EliminateEqualityLeft( proof: LKProof ) {
         val equationIndex = eqr.eqInConclusion
         val equationHistory = histories( equationIndex )
         val ( s0Tos, t0Tot ) =
-          splitEquationRewriteSequence( equationHistory.steps )
+          dropIdentityRewriteSteps(
+            splitEquationRewriteSequence( equationHistory.steps ) )
         getOrientation( eqr ) match {
           case Ltor =>
             val sTos0 = s0Tos.reverse
