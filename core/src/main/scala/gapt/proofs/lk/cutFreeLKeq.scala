@@ -1,6 +1,7 @@
 package gapt.proofs.lk
 
 import gapt.expr.Apps
+import gapt.expr.Formula
 import gapt.proofs.Sequent
 import gapt.proofs.SequentIndex
 import gapt.proofs.lk.reductions.CutReduction
@@ -93,8 +94,8 @@ object cutFreeLKeq {
 
   private object FinalCutReduction extends CutReduction {
     override def reduce( proof: CutRule ): Option[LKProof] =
-      if ( isEqualitySequence( proof.leftSubProof ) &&
-        isEqualitySequence( proof.rightSubProof ) ) {
+      if ( isNiceEqualitySequence( proof.leftSubProof ) &&
+        isNiceEqualitySequence( proof.rightSubProof ) ) {
         Some( eliminateFinalCut( proof ) )
       } else {
         None
@@ -174,8 +175,9 @@ object eliminateFinalCut {
       pushCut( CutRule(
         eliminateEqualityLeft( finalCut.leftSubProof ),
         eliminateEqualityLeft( finalCut.rightSubProof ), finalCut.cutFormula ) )
-    removeRedundantLeftContractions(
-      pushAllWeakeningsToLeaves( weakEqualitySequence ) )
+    removeRedundantAssumptions(
+      pushAllWeakeningsToLeaves( weakEqualitySequence ),
+      finalCut.endSequent.antecedent )
   }
 
   def pushCut( finalCut: CutRule ): LKProof = {
@@ -183,7 +185,7 @@ object eliminateFinalCut {
       case LogicalAxiom( _ ) =>
         finalCut.rightSubProof
       case ReflexivityAxiom( _ ) =>
-        dropRedundantEquation( finalCut.aux2, finalCut.rightSubProof )
+        dropReflexiveEquation( finalCut.aux2, finalCut.rightSubProof )
       case wkl @ WeakeningLeftRule( _, _ ) //
       if wkl.mainIndices.contains( finalCut.aux1 ) =>
         WeakeningMacroRule( wkl.subProof, finalCut.endSequent )
@@ -213,14 +215,7 @@ object eliminateFinalCut {
                 eqr.equation,
                 eqr.mainFormula,
                 eqr.replacementContext ) ) )
-        ContractionMacroRule(
-          pushCut(
-            CutRule(
-              eqr.subProof,
-              newRightSubProof,
-              eqr.auxFormula ) ),
-          finalCut.conclusion,
-          true )
+        pushCut( CutRule( eqr.subProof, newRightSubProof, eqr.auxFormula ) )
       case eqr @ EqualityRightRule( _, _, _, _ ) =>
         val newSubProof =
           pushCut(
@@ -236,10 +231,24 @@ object eliminateFinalCut {
     }
   }
 
-  private object removeRedundantLeftContractions {
-    def apply( proof: LKProof ): LKProof = {
-      val targetAntecedent = proof.endSequent.antecedent
+  private object removeRedundantAssumptions {
 
+    /**
+     * Removes redundant assumptions from an (=l)-free equality sequence.
+     *
+     * An assumption is considered as redundant if it occurs twice in the
+     * antecedent of the given proof's end-sequent.
+     *
+     * @param proof The (=l)-free equality sequence from which redundant left
+     *              contractions are to be removed.
+     * @param targetAntecedent Obtained from proof.antencedent by removing
+     *                         duplicate formulas.
+     * @return An (=l)-free equality sequence with end-sequent
+     *         `targetAntecedent ++: Sequent() :++ proof.endSequent.succeedent`.
+     *         The resulting proof is obtained from the given proof by omitting
+     *         inference rules.
+     */
+    def apply( proof: LKProof, targetAntecedent: Seq[Formula] ): LKProof = {
       def removeContractionsLeft( proof: LKProof ): LKProof =
         proof match {
           case eqr @ EqualityRightRule( _, _, _, _ ) =>
@@ -252,36 +261,37 @@ object eliminateFinalCut {
             WeakeningMacroRule(
               retrieveAxiom( proof ),
               targetAntecedent ++: Sequent() :++ proof.endSequent.succedent )
-          case crl @ ContractionLeftRule( _, _, _ ) =>
-            removeContractionsLeft( crl.subProof )
         }
-
       removeContractionsLeft( proof )
     }
   }
 
-  object dropRedundantEquation {
+  object dropReflexiveEquation {
+
     /**
-     * Discards a useless formula of the form t = t.
+     * Discards an assumption t = t from a (=l)-free equality sequence.
      *
      * Given an (=l)-free equality sequence P with an end-sequent of the form
-     * t = t, G => D, this function returns an (=l)-free equality sequence
-     * with end-sequent for the form G => D, containing not more inferences than
-     * P.
+     * t = t, G => D, this function returns a (=l)-fee equality sequence P'
+     * with end-sequent of the form G => D. Moreover P' is obtained from P only
+     * by discarding inferences.
      *
-     * @param equationIndex The index of t = t in the end-sequent.
-     * @param proof The equality sequence from which t = t is to be removed.
-     * @return An (=l)-free equality sequence of the sequent G => D containing
-     *         not more inferences than `proof`.
+     * @param equationIndex The index of the assumption t = t in the antecedent
+     *                      of the end-sequent of the given proof.
+     * @param proof The (=l)-free equality sequence from which the assumption
+     *              t = t is to be removed.
+     * @return An (=l)-free equality sequence of the sequent G => D obtained
+     *         from P by discarding inferences having t = t as main formula or
+     *         equation.
      */
     def apply( equationIndex: SequentIndex, proof: LKProof ): LKProof = {
       proof match {
         case eqr @ EqualityRightRule( _, _, _, _ ) //
         if eqr.eqInConclusion == equationIndex =>
-          dropRedundantEquation( eqr.eq, eqr.subProof )
+          dropReflexiveEquation( eqr.eq, eqr.subProof )
         case eqr @ EqualityRightRule( _, _, _, _ ) =>
           val newSubProof =
-            dropRedundantEquation(
+            dropReflexiveEquation(
               eqr.getSequentConnector.parent( equationIndex ),
               eqr.subProof )
           EqualityRightRule(
@@ -291,7 +301,7 @@ object eliminateFinalCut {
             eqr.replacementContext )
         case wkr @ WeakeningRightRule( _, _ ) =>
           val newSubProof =
-            dropRedundantEquation(
+            dropReflexiveEquation(
               wkr.getSequentConnector.parent( equationIndex ),
               wkr.subProof )
           WeakeningRightRule( newSubProof, wkr.formula )
@@ -300,7 +310,7 @@ object eliminateFinalCut {
           wkl.subProof
         case wkl @ WeakeningLeftRule( _, _ ) =>
           val newSubProof =
-            dropRedundantEquation(
+            dropReflexiveEquation(
               wkl.getSequentConnector.parent( equationIndex ),
               wkl.subProof )
           WeakeningLeftRule( newSubProof, wkl.formula )
@@ -312,13 +322,23 @@ object eliminateFinalCut {
   }
 }
 
-object isEqualitySequence {
+object isNiceEqualitySequence {
+  /**
+    * Checks whether the given proof is a nice equality sequence.
+    *
+    * A proof is a nice equality sequence if it is a weakening only subtree
+    * followed by some equality inferences.
+    *
+    * @param proof The proof to be checked.
+    * @return true if the given proof is a nice equality sequence, false
+    * otherwise.
+    */
   def apply( proof: LKProof ): Boolean = {
     proof match {
       case eqr @ EqualityRightRule( _, _, _, _ ) =>
-        isEqualitySequence( eqr.subProof )
+        isNiceEqualitySequence( eqr.subProof )
       case eql @ EqualityLeftRule( _, _, _, _ ) =>
-        isEqualitySequence( eql.subProof )
+        isNiceEqualitySequence( eql.subProof )
       case _ => weakeningOnlySubTree( proof )
     }
   }
