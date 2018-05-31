@@ -9,6 +9,16 @@ import gapt.proofs.SequentConnector
 
 object atomicWeakeningNormalForm {
 
+  /**
+   * Transforms a proof to atomic weakening normal form.
+   *
+   * A proof is in atomic weakening normal form if all of its weakening
+   * inferences have an atomic main formula.
+   *
+   * @param proof The proof to be transformed to atomic weakening normal form.
+   * @return A proof in atomic weakening normal form of the same end-sequent
+   * as the given proof.
+   */
   def apply( proof: LKProof ): LKProof = visitor.apply( proof, () )
 
   private object visitor extends LKVisitor[Unit] {
