@@ -10,7 +10,6 @@ import gapt.expr.Substitution
 import gapt.proofs.IndexOrFormula
 import gapt.proofs.Sequent
 import gapt.proofs.SequentIndex
-import gapt.proofs.gaptic.OpenAssumption
 
 sealed trait Orientation
 case object Ltor extends Orientation
