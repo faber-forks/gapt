@@ -28,9 +28,9 @@ case class RewriteSequence( steps: Seq[Rewrite] ) {
 }
 
 case class Rewrite(
-                    context:     Abs,
-                    equation:    Formula,
-                    orientation: Orientation ) {
+    context:     Abs,
+    equation:    Formula,
+    orientation: Orientation ) {
 
   def lift( context: Abs ): Rewrite =
     this.copy( context = liftContext( context, this.context ) )
@@ -57,7 +57,7 @@ case class Rewrite(
 object splitEquationRewriteSequence {
 
   def apply(
-             rewriteSequence: RewriteSequence ): ( RewriteSequence, RewriteSequence ) = {
+    rewriteSequence: RewriteSequence ): ( RewriteSequence, RewriteSequence ) = {
     val ( stepsL, stepsR ) = rewriteSequence.steps.map {
       splitEquality
     }.unzip
@@ -67,8 +67,8 @@ object splitEquationRewriteSequence {
   def splitEquality( step: Rewrite ): ( Rewrite, Rewrite ) = {
     val Rewrite( context, equation, direction ) = step
     val Abs(
-    contextVar,
-    Apps( _, Seq( leftContext, rightContext ) ) ) = context
+      contextVar,
+      Apps( _, Seq( leftContext, rightContext ) ) ) = context
     (
       Rewrite( Abs( contextVar, leftContext ), equation, direction ),
       Rewrite( Abs( contextVar, rightContext ), equation, direction ) )
@@ -119,7 +119,8 @@ class EliminateEqualityLeft( proof: LKProof ) {
         val equationHistory = histories( equationIndex )
         val principalHistory = histories( principalIndex )
 
-        val ( s0Tos, t0Tot ) = splitEquationRewriteSequence( equationHistory.steps )
+        val ( s0Tos, t0Tot ) =
+          splitEquationRewriteSequence( equationHistory.steps )
 
         val newAuxHistory =
           getOrientation( eql ) match {
@@ -137,7 +138,7 @@ class EliminateEqualityLeft( proof: LKProof ) {
                         replacementContext,
                         equationHistory.initial,
                         Ltor ) ) ) ++
-                  At0ToAt )
+                    At0ToAt )
             case Rtol =>
               val tTot0 = t0Tot.reverse
               val AtToAt0 = tTot0.lift( replacementContext )
@@ -152,7 +153,7 @@ class EliminateEqualityLeft( proof: LKProof ) {
                         replacementContext,
                         equationHistory.initial,
                         Rtol ) ) ) ++
-                  As0ToAs )
+                    As0ToAs )
           }
         val newHistories = histories.zipWithIndex.map {
           case ( history, index ) =>
@@ -166,7 +167,8 @@ class EliminateEqualityLeft( proof: LKProof ) {
       case eqr @ EqualityRightRule( _, _, _, _ ) =>
         val equationIndex = eqr.eqInConclusion
         val equationHistory = histories( equationIndex )
-        val ( s0Tos, t0Tot ) = splitEquationRewriteSequence( equationHistory.steps )
+        val ( s0Tos, t0Tot ) =
+          splitEquationRewriteSequence( equationHistory.steps )
         getOrientation( eqr ) match {
           case Ltor =>
             val sTos0 = s0Tos.reverse
@@ -207,7 +209,9 @@ class EliminateEqualityLeft( proof: LKProof ) {
                 Sequent() :++
                 proof.endSequent.succedent ) )
         case refl @ ReflexivityAxiom( _ ) =>
-          WeakeningMacroRule( refl, endSequent.antecedent ++: Sequent() :++ proof.endSequent.succedent )
+          WeakeningMacroRule(
+            refl,
+            endSequent.antecedent ++: Sequent() :++ proof.endSequent.succedent )
       }
     }
   }
@@ -225,19 +229,21 @@ class EliminateEqualityLeft( proof: LKProof ) {
           IndexOrFormula.ofFormula( equation ),
           IndexOrFormula.ofFormula( aux.asInstanceOf[Formula] ),
           context )
-
     }
   }
 
   def getOrientation( eql: EqualityRule ): Orientation = {
     val Apps( _, Seq( s, t ) ) = eql.equation
-    if ( BetaReduction.betaNormalize( App( eql.replacementContext, s ) ) == eql.auxFormula )
+    if ( BetaReduction.betaNormalize( App( eql.replacementContext, s ) ) ==
+      eql.auxFormula )
       Rtol
     else
       Ltor
   }
+}
 
-  def retrieveAxiom( proof: LKProof ): LKProof = {
+object retrieveAxiom {
+  def apply( proof: LKProof ): LKProof = {
     proof.subProofs filter {
       case LogicalAxiom( _ )     => true
       case ReflexivityAxiom( _ ) => true
