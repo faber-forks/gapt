@@ -197,7 +197,12 @@ class EliminateEqualityLeft( proof: LKProof ) {
           val upper = WeakeningMacroRule(
             LogicalAxiom( histories( index ).initial ),
             endSequent.antecedent ++: Sequent() :+ histories( index ).initial )
-          rewrite( upper, history.steps )
+          pushAllWeakeningsToLeaves(
+            WeakeningMacroRule(
+              rewrite( upper, history.steps ),
+              endSequent.antecedent ++:
+                Sequent() :++
+                proof.endSequent.succedent ) )
         case refl @ ReflexivityAxiom( _ ) =>
           WeakeningMacroRule( refl, endSequent.antecedent ++: Sequent() :++ proof.endSequent.succedent )
       }
