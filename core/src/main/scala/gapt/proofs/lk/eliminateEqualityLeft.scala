@@ -127,94 +127,116 @@ class EliminateEqualityLeft( proof: LKProof ) {
     apply( proof, initialHistory( proof.conclusion ) )
   }
 
+  private def constructNewHistory(
+    principalHistory:   History,
+    equationHistory:    History,
+    replacementContext: Abs,
+    orientation:        Orientation ): History = {
+
+    val ( s0Tos, t0Tot ) =
+      orientation match {
+        case Ltor => dropIdentityRewriteSteps(
+          splitEquationRewriteSequence( equationHistory.steps ) )
+        case Rtol => dropIdentityRewriteSteps(
+          splitEquationRewriteSequence( equationHistory.steps ) ) swap
+      }
+
+    History(
+      principalHistory.initial,
+      principalHistory.steps ++
+        constructRewriteSequence(
+          replacementContext, equationHistory, orientation ) )
+  }
+
+  private def apply(
+    eqr: EqualityRightRule, histories: Sequent[History] ): LKProof = {
+    val equationHistory = histories( eqr.eqInConclusion )
+    val rewriteSequence =
+      constructRewriteSequence(
+        eqr.replacementContext,
+        equationHistory,
+        getOrientation( eqr ) )
+
+    rewrite( apply( eqr.subProof, histories ), rewriteSequence.reverse )
+  }
+
+  /**
+   * Constructs a rewrite sequence based on a given equation and context.
+   *
+   * @param replacementContext The replacement context x.A(x).
+   * @param equationHistory The rewriting history of an equation s = t.
+   * @param orientation The orientation in which the equation s = t is to
+   * to be applied.
+   * @return If the orientation is left-to-right, then a rewrite sequence that
+   * rewrites a formula of the form A(s) to the formula A(t) is returned,
+   * otherwise a rewrite sequence that rewrites A(t) to A(s) is returned.
+   */
+  private def constructRewriteSequence(
+    replacementContext: Abs,
+    equationHistory:    History,
+    orientation:        Orientation ): RewriteSequence = {
+    val ( s0Tos, t0Tot ) =
+      orientation match {
+        case Ltor => dropIdentityRewriteSteps(
+          splitEquationRewriteSequence( equationHistory.steps ) )
+        case Rtol => dropIdentityRewriteSteps(
+          splitEquationRewriteSequence( equationHistory.steps ) ) swap
+      }
+
+    val sTos0 = s0Tos.reverse
+    val AsToAs0 = sTos0.lift( replacementContext )
+    val At0ToAt = t0Tot.lift( replacementContext )
+
+    AsToAs0 ++
+      RewriteSequence(
+        Seq(
+          Rewrite(
+            replacementContext,
+            equationHistory.initial,
+            orientation ) ) ) ++ At0ToAt
+  }
+
+  def updateHistories(
+    histories:      Sequent[History],
+    newAuxHistory:  History,
+    auxiliaryIndex: SequentIndex,
+    eql:            EqualityLeftRule ): Sequent[History] = {
+    histories.zipWithIndex.map {
+      case ( _, index ) =>
+        if ( index == auxiliaryIndex )
+          newAuxHistory
+        else
+          histories( eql.getSequentConnector.child( index ) )
+    }
+  }
+
+  private def apply(
+    eql: EqualityLeftRule, histories: Sequent[History] ): LKProof = {
+    val principalIndex = eql.mainIndices.head
+    val equationIndex = eql.eqInConclusion
+    val auxiliaryIndex = eql.aux
+
+    val auxiliaryHistory =
+      constructNewHistory(
+        histories( principalIndex ),
+        histories( equationIndex ),
+        eql.replacementContext,
+        getOrientation( eql ) )
+
+    val newHistories =
+      updateHistories( histories, auxiliaryHistory, auxiliaryIndex, eql )
+
+    apply( eql.subProof, newHistories )
+  }
+
   private def apply( proof: LKProof, histories: Sequent[History] ): LKProof = {
     proof match {
-      case eql @ EqualityLeftRule( subProof, _, _, replacementContext ) =>
-        val principalIndex = eql.mainIndices.head
-        val equationIndex = eql.eqInConclusion
-        val auxiliaryIndex = eql.aux
-
-        val equationHistory = histories( equationIndex )
-        val principalHistory = histories( principalIndex )
-
-        val ( s0Tos, t0Tot ) =
-          dropIdentityRewriteSteps(
-            splitEquationRewriteSequence( equationHistory.steps ) )
-
-        val newAuxHistory =
-          getOrientation( eql ) match {
-            case Ltor =>
-              val sTos0 = s0Tos.reverse
-              val AsToAs0 = sTos0.lift( replacementContext )
-              val At0ToAt = t0Tot.lift( replacementContext )
-              History(
-                principalHistory.initial,
-                principalHistory.steps ++
-                  AsToAs0 ++
-                  RewriteSequence(
-                    Seq(
-                      Rewrite(
-                        replacementContext,
-                        equationHistory.initial,
-                        Ltor ) ) ) ++
-                    At0ToAt )
-            case Rtol =>
-              val tTot0 = t0Tot.reverse
-              val AtToAt0 = tTot0.lift( replacementContext )
-              val As0ToAs = s0Tos.lift( replacementContext )
-              History(
-                principalHistory.initial,
-                principalHistory.steps ++
-                  AtToAt0 ++
-                  RewriteSequence(
-                    Seq(
-                      Rewrite(
-                        replacementContext,
-                        equationHistory.initial,
-                        Rtol ) ) ) ++
-                    As0ToAs )
-          }
-        val newHistories = histories.zipWithIndex.map {
-          case ( history, index ) =>
-            if ( index == auxiliaryIndex )
-              newAuxHistory
-            else
-              histories( eql.getSequentConnector.child( index ) )
-        }
-        apply( subProof, newHistories )
+      case eql @ EqualityLeftRule( _, _, _, _ ) =>
+        apply( eql, histories )
 
       case eqr @ EqualityRightRule( _, _, _, _ ) =>
-        val equationIndex = eqr.eqInConclusion
-        val equationHistory = histories( equationIndex )
-        val ( s0Tos, t0Tot ) =
-          dropIdentityRewriteSteps(
-            splitEquationRewriteSequence( equationHistory.steps ) )
-        getOrientation( eqr ) match {
-          case Ltor =>
-            val sTos0 = s0Tos.reverse
-            val AsToAs0 = sTos0.lift( eqr.replacementContext )
-            val At0ToAt = t0Tot.lift( eqr.replacementContext )
-            val rewriteSequence = AsToAs0 ++
-              RewriteSequence(
-                Seq(
-                  Rewrite(
-                    eqr.replacementContext,
-                    equationHistory.initial,
-                    Ltor ) ) ) ++ At0ToAt
-            rewrite( apply( eqr.subProof, histories ), rewriteSequence.reverse )
-          case Rtol =>
-            val tTot0 = t0Tot.reverse
-            val AtToAt0 = tTot0.lift( eqr.replacementContext )
-            val As0ToAs = s0Tos.lift( eqr.replacementContext )
-            val rewriteSequence = AtToAt0 ++
-              RewriteSequence(
-                Seq(
-                  Rewrite(
-                    eqr.replacementContext,
-                    equationHistory.initial,
-                    Rtol ) ) ) ++ As0ToAs
-            rewrite( apply( eqr.subProof, histories ), rewriteSequence.reverse )
-        }
+        apply( eqr, histories )
+
       case _ => retrieveAxiom( proof ) match {
         case LogicalAxiom( formula ) =>
           val index: SequentIndex = proof.endSequent.indexOfInAnt( formula )
