@@ -14,11 +14,11 @@ import gapt.proofs.SequentIndex
 
 object eliminateEqualityLeft {
 
-  sealed trait Orientation
-  case object Ltor extends Orientation
-  case object Rtol extends Orientation
+  private sealed trait Orientation
+  private case object Ltor extends Orientation
+  private case object Rtol extends Orientation
 
-  case class RewriteSequence( steps: Seq[Rewrite] ) {
+  private case class RewriteSequence( steps: Seq[Rewrite] ) {
 
     /**
      * Lifts the contexts of a rewrite sequence.
@@ -54,7 +54,7 @@ object eliminateEqualityLeft {
       RewriteSequence( steps map { _.reverse } reverse )
   }
 
-  case class Rewrite(
+  private case class Rewrite(
       context:     Abs,
       equation:    Formula,
       orientation: Orientation ) {
@@ -305,7 +305,7 @@ object eliminateEqualityLeft {
      * histories by the permutation given by the equality left formula and
      * whose element at index `auxiliaryIndex` is `newAuxHistory`.
      */
-    def updateHistories(
+    private def updateHistories(
       histories:      Sequent[History],
       newAuxHistory:  History,
       auxiliaryIndex: SequentIndex,
