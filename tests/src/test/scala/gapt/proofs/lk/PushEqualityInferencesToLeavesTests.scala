@@ -651,6 +651,39 @@ class PushEqualityInferencesToLeavesTests extends Specification with SequentMatc
     reduction.subProofAt( 0 :: Nil ) must beAnInstanceOf[EqualityLeftRule]
   }
 
+  "equality right; upper sequent introduced by induction; aux is principal; " +
+    "equality operates on subterm of induction term" in {
+    implicit var context = Context.default
+    context += Context.InductiveType( "nat", hoc"0: nat", hoc"s:nat>nat" )
+    context += hoc"F:nat>o"
+    context += hoc"r:nat"
+    context += hoc"t:nat"
+    val proof = (
+      ProofBuilder
+        c OpenAssumption(
+        ( "" -> hof"r=t" ) +: Sequent() :+ ( "" -> hof"F(0)" ) )
+        c OpenAssumption(
+        ( "" -> hof"F(x)" ) +: Sequent() :+ ( "" -> hof"F(s(x))" ) )
+        b ( ( left, right ) =>
+        InductionRule(
+          Seq(
+            InductionCase( left, hoc"0:nat", Nil, Nil, Suc( 0 ) ),
+            InductionCase(
+              right,
+              hoc"s:nat>nat",
+              Seq( Ant( 0 ) ),
+              Seq( hov"x:nat" ),
+              Suc( 0 ) ) ),
+          Abs( hov"x:nat", le"F(x)" ), le"r" ) )
+        u ( EqualityRightRule(
+        _, Ant( 0 ), Suc( 0 ), Abs( hov"x:nat", le"F(x):o" ) ) ) qed )
+    val reduction =
+      equalityRightReduction( proof.asInstanceOf[EqualityRightRule] ).get._1
+
+    reduction must beAnInstanceOf[InductionRule]
+    reduction.endSequent must beMultiSetEqual( proof.endSequent )
+  }
+
   "equality left; upper sequent intro. by induction" in {
     implicit var context = Context()
     context += Context.InductiveType( "nat", hoc"0: nat", hoc"s:nat>nat" )
