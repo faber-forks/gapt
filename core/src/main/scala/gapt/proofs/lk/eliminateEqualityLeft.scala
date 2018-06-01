@@ -207,9 +207,9 @@ object eliminateEqualityLeft {
    * @param initial The initial formula.
    * @param steps The rewrite steps applied to the initial formula.
    */
-  case class History( initial: Formula, steps: RewriteSequence )
+  private case class History( initial: Formula, steps: RewriteSequence )
 
-  object initialHistory {
+  private object initialHistory {
 
     /**
      * Creates the initial history for a given sequent.
@@ -223,7 +223,7 @@ object eliminateEqualityLeft {
       sequent.map { History( _, RewriteSequence( Seq() ) ) }
   }
 
-  object getOrientation {
+  private object getOrientation {
 
     /**
      * Retrieves the orientation of an equality inference.
