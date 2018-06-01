@@ -241,14 +241,6 @@ object eliminateEqualityLeft {
       replacementContext: Abs,
       orientation:        Orientation ): History = {
 
-      val ( s0Tos, t0Tot ) =
-        orientation match {
-          case Ltor => dropIdentityRewriteSteps(
-            splitEquationRewriteSequence( equationHistory.steps ) )
-          case Rtol => dropIdentityRewriteSteps(
-            splitEquationRewriteSequence( equationHistory.steps ) ) swap
-        }
-
       History(
         principalHistory.initial,
         principalHistory.steps ++
