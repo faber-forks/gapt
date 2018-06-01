@@ -690,20 +690,32 @@ class PushEqualityInferencesToLeavesTests extends Specification with SequentMatc
   }
 
   "equality right; upper sequent intro. by induction; aux is principal" in {
-    implicit var context = Context()
+    implicit var context = Context.default
     context += Context.InductiveType( "nat", hoc"0: nat", hoc"s:nat>nat" )
     context += hoc"F:nat>o"
     context += hoc"r:nat"
     context += hoc"t:nat"
+    context += hoc"f:nat>nat"
+    context += hoc"g:nat>nat"
     val proof = ( ProofBuilder
-      c OpenAssumption( ( "" -> hof"r=t" ) +: Sequent() :+ ( "" -> hof"F(0)" ) )
-      c OpenAssumption( ( "" -> hof"F(x)" ) +: Sequent() :+ ( "" -> hof"F(s(x))" ) )
-      b ( ( left, right ) => InductionRule(
-        InductionCase( left, hoc"0:nat", Nil, Nil, Suc( 0 ) ) ::
-          InductionCase( right, hoc"s:nat>nat", Ant( 0 ) :: Nil, hov"x:nat" :: Nil, Suc( 0 ) ) :: Nil,
-        Abs( hov"x:nat", le"F(x)" ), le"r" ) )
-      u ( EqualityRightRule( _, Ant( 0 ), Suc( 0 ), Abs( hov"x:nat", le"F(x):o" ) ) ) qed )
-    val reduction = equalityRightReduction( proof.asInstanceOf[EqualityRightRule] )
+      c OpenAssumption(
+        ( "" -> hof"f(r)=g(t)" ) +: Sequent() :+ ( "" -> hof"F(f(0))" ) )
+        c OpenAssumption(
+          ( "" -> hof"F(f(x))" ) +: Sequent() :+ ( "" -> hof"F(f(s(x)))" ) )
+          b ( ( left, right ) => InductionRule(
+            InductionCase(
+              left, hoc"0:nat", Nil, Nil, Suc( 0 ) ) ::
+              InductionCase(
+                right,
+                hoc"s:nat>nat",
+                Ant( 0 ) :: Nil,
+                hov"x:nat" :: Nil,
+                Suc( 0 ) ) :: Nil,
+            Abs( hov"x:nat", le"F(f(x))" ), le"r" ) )
+          u ( EqualityRightRule(
+            _, Ant( 0 ), Suc( 0 ), Abs( hov"x:nat", le"F(x):o" ) ) ) qed )
+    val reduction =
+      equalityRightReduction( proof.asInstanceOf[EqualityRightRule] )
     reduction must beEmpty
   }
 
@@ -786,26 +798,62 @@ class PushEqualityInferencesToLeavesTests extends Specification with SequentMatc
       c OpenAssumption( ( "" -> hof"s=e" ) +: ( "" -> hof"e=t" ) +: ( "" -> hof"A(e)" ) +: Sequent() )
       u ( EqualityLeftRule( _, Ant( 1 ), Ant( 2 ), Abs( hov"x", le"A(x):o" ) ) )
       u ( EqualityLeftRule( _, Ant( 1 ), Ant( 2 ), Abs( hov"x", le"x=t:o" ) ) ) qed )
-    equalityLeftReduction( proof.asInstanceOf[EqualityLeftRule] ).isEmpty
+    equalityLeftReduction( proof.asInstanceOf[EqualityLeftRule] ) must_== None
   }
 
-  "equality left; upper sequent intro. by equality right; eq in concl. is auxiliary" in {
+  """equality left; upper sequent intro. by equality right; eq in concl. is
+    |auxiliary""".stripMargin in {
     val proof = ( ProofBuilder
       c OpenAssumption( ( "" -> hof"s=e" ) +: ( "" -> hof"e=t" ) +: Sequent() :+ ( "" -> hof"A(e)" ) )
       u ( EqualityRightRule( _, Ant( 1 ), Suc( 0 ), Abs( hov"x", le"A(x):o" ) ) )
       u ( EqualityLeftRule( _, Ant( 0 ), Ant( 1 ), Abs( hov"x", le"x=t:o" ) ) ) qed )
-    equalityLeftReduction( proof.asInstanceOf[EqualityLeftRule] ).isEmpty
+    equalityLeftReduction( proof.asInstanceOf[EqualityLeftRule] ) must_== None
   }
 
-  "reduction procedure should step over stuck equality inferences and move weakening to optimal position" in {
+  "reduction procedure should step over stuck equality inferences" in {
+    implicit var context = Context.default
+    context += Context.InductiveType( "nat", hoc"0: nat", hoc"s:nat>nat" )
+    context += hoc"F:nat>o"
+    context += hoc"A:nat>o"
+    context += hoc"r:nat"
+    context += hoc"t:nat"
+    context += hoc"f:nat>nat"
+    context += hoc"g:nat>nat"
     val proof = ( ProofBuilder
-      c OpenAssumption( ( "" -> hof"s = t" ) +: ( "" -> hof"A(s)" ) +: Sequent() :+ ( "" -> hof"B(r)" ) )
-      u ( WeakeningLeftRule( _, hof"r = u" ) )
-      u ( EqualityRightRule( _, Ant( 0 ), Suc( 0 ), Abs( hov"x", le"B(x):o" ) ) )
-      u ( EqualityLeftRule( _, Ant( 1 ), Ant( 2 ), Abs( hov"x", le"A(x):o" ) ) ) qed )
-    val reduction = pushEqualityInferencesToLeaves( proof )
-    reduction.conclusion must beMultiSetEqual( proof.conclusion )
-    reduction must beAnInstanceOf[EqualityRightRule]
-    reduction.subProofAt( 0 :: Nil ) must beAnInstanceOf[WeakeningLeftRule]
+      c OpenAssumption(
+        ( "" -> hof"f(r)=g(t)" ) +: Sequent() :+ ( "" -> hof"F(f(0))" ) )
+        c OpenAssumption(
+          ( "" -> hof"A(r)" ) +: ( "" -> hof"r = t" ) +:
+            ( "" -> hof"F(f(x))" ) +:
+            Sequent() :+ ( "" -> hof"F(f(s(x)))" ) )
+          b ( ( left, right ) => InductionRule(
+            InductionCase(
+              left, hoc"0:nat", Nil, Nil, Suc( 0 ) ) ::
+              InductionCase(
+                right,
+                hoc"s:nat>nat",
+                Ant( 2 ) :: Nil,
+                hov"x:nat" :: Nil,
+                Suc( 0 ) ) :: Nil,
+            Abs( hov"x:nat", le"F(f(x))" ), le"r" ) )
+          u ( EqualityRightRule(
+            _, Ant( 0 ), Suc( 0 ), Abs( hov"x:nat", le"F(x):o" ) ) )
+            u ( EqualityRightRule(
+              _, hof"f(r) = g(t)", hof"F(g(t))", Abs( hov"x:nat", le"F(x)" ) ) )
+              u ( EqualityLeftRule(
+                _, hof" r = t", hof"A(r)", Abs( hov"x:nat", le"A(x)" ) ) )
+                u ( EqualityLeftRule(
+                  _, hof" r = t", hof"A(t)", Abs( hov"x:nat", le"A(x)" ) ) )
+                  u ( EqualityLeftRule(
+                    _, hof" r = t", hof"A(r)", Abs( hov"x:nat", le"A(x)" ) ) )
+                    u ( EqualityLeftRule(
+                      _, hof" r = t", hof"A(t)", Abs( hov"x:nat", le"A(x)" //
+                      ) ) ) qed )
+    val reduction =
+      pushEqualityInferencesToLeaves( proof )
+
+    reduction.endSequent must beMultiSetEqual( proof.endSequent )
+    reduction.subProofAt( 1 :: 0 :: 0 :: Nil ) must
+      beAnInstanceOf[EqualityLeftRule]
   }
 }
