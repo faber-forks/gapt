@@ -4,7 +4,6 @@ import gapt.expr.Abs
 import gapt.expr.App
 import gapt.expr.Apps
 import gapt.expr.BetaReduction
-import gapt.expr.Expr
 import gapt.expr.Formula
 import gapt.expr.Substitution
 import gapt.expr.freeVariables
