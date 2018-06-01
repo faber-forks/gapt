@@ -159,7 +159,33 @@ object eliminateEqualityLeft {
     }
   }
 
-  object liftContext {
+  /**
+   * Rewrites a formula in the succeedent.
+   *
+   * @param proof The proof whose end-sequent is of the form G => D, A(s)
+   * where G contains all the equations used by the given rewrite sequence.
+   * @param rewriteSequence A rewrite sequence that rewrites A(s) to A(t).
+   * @return A proof obtained from proof by appending a sequence of equality
+   * right inferences that rewrite the formula A(s) into the formula A(t).
+   */
+  private def rewrite(
+    proof: LKProof, rewriteSequence: RewriteSequence ): LKProof = {
+    rewriteSequence.steps.foldLeft( proof ) {
+      case ( subProof, Rewrite( context, equation, orientation ) ) =>
+        val Apps( _, Seq( s, t ) ) = equation
+        val aux = orientation match {
+          case Ltor => BetaReduction.betaNormalize( App( context, s ) )
+          case Rtol => BetaReduction.betaNormalize( App( context, t ) )
+        }
+        EqualityRightRule(
+          subProof,
+          IndexOrFormula.ofFormula( equation ),
+          IndexOrFormula.ofFormula( aux.asInstanceOf[Formula] ),
+          context )
+    }
+  }
+
+  private object liftContext {
 
     /**
      * Lifts a context into another context.
@@ -195,6 +221,25 @@ object eliminateEqualityLeft {
      */
     def apply( sequent: Sequent[Formula] ): Sequent[History] =
       sequent.map { History( _, RewriteSequence( Seq() ) ) }
+  }
+
+  object getOrientation {
+
+    /**
+     * Retrieves the orientation of an equality inference.
+     *
+     * @param eq The equality inference whose orientation is to be retrieved.
+     * @return Ltor if the equality inference applies the equation from
+     * left to right, Rtol otherwise.
+     */
+    def apply( eq: EqualityRule ): Orientation = {
+      val Apps( _, Seq( s, t ) ) = eq.equation
+      if ( BetaReduction.betaNormalize( App( eq.replacementContext, s ) ) ==
+        eq.auxFormula )
+        Rtol
+      else
+        Ltor
+    }
   }
 
   /**
@@ -410,68 +455,23 @@ object eliminateEqualityLeft {
         }
       }
     }
-
-    /**
-     * Rewrites a formula in the succeedent.
-     *
-     * @param proof The proof whose end-sequent is of the form G => D, A(s)
-     * where G contains all the equations used by the given rewrite sequence.
-     * @param rewriteSequence A rewrite sequence that rewrites A(s) to A(t).
-     * @return A proof obtained from proof by appending a sequence of
-     * equality right inferences that rewrite the formula A(s) into the
-     * formula A(t).
-     */
-    def rewrite( proof: LKProof, rewriteSequence: RewriteSequence ): LKProof = {
-      rewriteSequence.steps.foldLeft( proof ) {
-        case ( subProof, Rewrite( context, equation, orientation ) ) =>
-          val Apps( _, Seq( s, t ) ) = equation
-          val aux = orientation match {
-            case Ltor => BetaReduction.betaNormalize( App( context, s ) )
-            case Rtol => BetaReduction.betaNormalize( App( context, t ) )
-          }
-          EqualityRightRule(
-            subProof,
-            IndexOrFormula.ofFormula( equation ),
-            IndexOrFormula.ofFormula( aux.asInstanceOf[Formula] ),
-            context )
-      }
-    }
   }
+}
 
-  object getOrientation {
+object retrieveAxiom {
 
-    /**
-     * Retrieves the orientation of an equality inference.
-     *
-     * @param eq The equality inference whose orientation is to be retrieved.
-     * @return Ltor if the equality inference applies the equation from
-     * left to right, Rtol otherwise.
-     */
-    def apply( eq: EqualityRule ): Orientation = {
-      val Apps( _, Seq( s, t ) ) = eq.equation
-      if ( BetaReduction.betaNormalize( App( eq.replacementContext, s ) ) ==
-        eq.auxFormula )
-        Rtol
-      else
-        Ltor
-    }
-  }
-
-  object retrieveAxiom {
-
-    /**
-     * Retrieves the axiom of a list-like proof tree.
-     *
-     * @param proof The list-like proof whose axiom is to be retrieved.
-     * @return The axiom of the given proof.
-     */
-    def apply( proof: LKProof ): LKProof = {
-      proof.subProofs filter {
-        case LogicalAxiom( _ )     => true
-        case ReflexivityAxiom( _ ) => true
-        case _                     => false
-      } head
-    }
+  /**
+   * Retrieves the axiom of a list-like proof tree.
+   *
+   * @param proof The list-like proof whose axiom is to be retrieved.
+   * @return The axiom of the given proof.
+   */
+  def apply( proof: LKProof ): LKProof = {
+    proof.subProofs filter {
+      case LogicalAxiom( _ )     => true
+      case ReflexivityAxiom( _ ) => true
+      case _                     => false
+    } head
   }
 }
 
